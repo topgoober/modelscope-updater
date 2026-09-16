@@ -1,0 +1,1 @@
+{"poll_seconds":600,"models":["hrrr","gfs","nam","ecmwf","rap","hiresw","rrfs","sref","eps"],"eps_members":["1","2"],"sref_members":["arw-ctl","nmb-ctl"],"valid_step_hours":3,"horizon_hours":48,"retention_hours":48,"workers":1,"frame_timeout_seconds":1800,"history":true}
