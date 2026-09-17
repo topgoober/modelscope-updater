@@ -8,15 +8,15 @@ from catalog import MODELS,PRODUCTS
 from sources import LEVELS,fetch
 from diagnostics import diagnostics,dewpoint,mixing
 ROOT=pathlib.Path(__file__).parent
-GRID=dict(west=-125.,north=50.,step=.4,width=149,height=66)
-PGRID=dict(west=-125.,north=50.,step=.8,width=75,height=33)
+from region_grid import display_grids
+GRID,PGRID,PROFILE_STRIDE=display_grids()
 
 def sphere(lon,lat):
  lon,lat=np.deg2rad(lon),np.deg2rad(lat)
  return np.column_stack((np.cos(lat)*np.cos(lon),np.cos(lat)*np.sin(lon),np.sin(lat)))
 def coordinates(g):
  x,y=np.meshgrid(g['west']+np.arange(g['width'])*g['step'],g['north']-np.arange(g['height'])*g['step']);return x.ravel(),y.ravel()
-COARSE=(np.arange(PGRID['height'])[:,None]*2*GRID['width']+np.arange(PGRID['width'])[None,:]*2).ravel()
+COARSE=(np.arange(PGRID['height'])[:,None]*PROFILE_STRIDE*GRID['width']+np.arange(PGRID['width'])[None,:]*PROFILE_STRIDE).ravel()
 xx,yy=coordinates(GRID);UPSAMPLE=(np.minimum(np.rint((PGRID['north']-yy)/PGRID['step']).astype(int),PGRID['height']-1)*PGRID['width']+np.minimum(np.rint((xx-PGRID['west'])/PGRID['step']).astype(int),PGRID['width']-1))
 
 def get(h,key,default=None):
@@ -148,7 +148,7 @@ def derive(flds,meta,profiles):
   warnings.simplefilter('ignore');d,parcel=diagnostics(np.array(available,dtype=float),pr,sfc)
  for k,a in d.items():
   if k in ['cape','cin'] and k in flds:continue
-  flds[k]=a[UPSAMPLE];meta[k]=dict(kind='derived',method='Pressure-level calculation on a 0.8° sampled profile grid; see methodology.')
+  flds[k]=a[UPSAMPLE];meta[k]=dict(kind='derived',method=f'Pressure-level calculation on a {PGRID["step"]}° sampled profile grid; native model and vertical resolution still apply.')
  for k in ['lclp','storm_u','storm_v']:sfc[k]=d[k]
  return dict(grid=PGRID,pressure=available,**pr,parcel=parcel,surface=sfc)
 
@@ -171,7 +171,7 @@ def build_frame(model,run,hour,member='det'):
   sf,sm,sp,si=decode(surface_path);flds.update(sf);meta.update(sm);inventory.extend(si)
   for lev,values in sp.items():pr.setdefault(lev,{}).update(values)
  profile=derive(flds,meta,pr)
- return dict(model=model,member=member,run=run.isoformat()+'Z',hour=hour,valid=(run+dt.timedelta(hours=hour)).isoformat()+'Z',grid=GRID,fields=flds,fieldMeta=meta,profile=profile,inventory=inventory,source=source)
+ return dict(model=model,member=member,run=run.isoformat()+'Z',hour=hour,valid=(run+dt.timedelta(hours=hour)).isoformat()+'Z',grid=GRID,sampling=dict(field_step_degrees=GRID['step'],profile_step_degrees=PGRID['step'],method='Nearest native model cell; no added model resolution'),fields=flds,fieldMeta=meta,profile=profile,inventory=inventory,source=source)
 
 def save_frame(frame):
  key=f"{frame['model']}-{frame['run'][:13].replace('-','').replace('T','')}-{frame['hour']:03}-{frame['member']}"

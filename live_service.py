@@ -176,7 +176,9 @@ def process_job(job, store):
         env={**os.environ,'MODELSCOPE_CACHE_DIR':str(pathlib.Path('/tmp')/('modelscope-'+pathlib.Path(directory).name)),'OPENBLAS_NUM_THREADS':'1','OMP_NUM_THREADS':'1'}
         # Isolated decoder releases GRIB/native memory after every frame.
         try:
-            subprocess.run(cmd,check=True,timeout=store.config['frame_timeout_seconds'],env=env)
+            from regional_service import decoder_slot
+            with decoder_slot(store.root):
+                subprocess.run(cmd,check=True,timeout=store.config['frame_timeout_seconds'],env=env)
         finally:
             import shutil
             shutil.rmtree(env['MODELSCOPE_CACHE_DIR'],ignore_errors=True)
@@ -240,6 +242,8 @@ def create_feed_app(directory=None):
     def frame_file(filename):
         if not filename.endswith('.json.gz'): abort(404)
         return send_from_directory(root/'data',filename,mimetype='application/gzip',conditional=True)
+    from regional_service import install_regional_routes
+    install_regional_routes(app,root)
     return app
 
 def serve(config, directory):
